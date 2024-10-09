@@ -7,8 +7,11 @@ public class PlayerMovement : MonoBehaviour
 {
     public float speed;
     public float rotationSpeed;
+    public float dashSpeed = 10f; // 대시 속도
+    public float dashDuration = 0.2f; // 대시 지속 시간
     private Vector2 movementValue;
     private float lookValue;
+    private bool isDashing = false;
 
     private void Awake()
     {
@@ -25,32 +28,44 @@ public class PlayerMovement : MonoBehaviour
     {
         lookValue = value.Get<Vector2>().x * rotationSpeed;
     }
-    // Start is called before the first frame update
+
+    public void OnDash(InputValue value)
+    {
+        if (value.isPressed && !isDashing)
+        {
+            StartCoroutine(Dash());
+        }
+    }
+
     void Start()
     {
-        
+        // Start 메서드는 그대로 유지
     }
 
-    // Update is called once per frame
     void Update()
     {
-        transform.Translate(
-            movementValue.x * Time.deltaTime, 0, movementValue.y * Time.deltaTime
-        );
+        if (!isDashing)
+        {
+            transform.Translate(
+                movementValue.x * Time.deltaTime, 0, movementValue.y * Time.deltaTime
+            );
+        }
 
         transform.Rotate(0, lookValue * Time.deltaTime, 0);
-        // float mouseX = Input.GetAxis("Mouse X");
-        // transform.Rotate(0, mouseX * rotationSpeed * Time.deltaTime, 0);
-        // if(Input.GetKey(KeyCode.W) || Input.GetKey(KeyCode.UpArrow)) { transform.Translate(0, 0, speed * Time.deltaTime); }
-        // if(Input.GetKey(KeyCode.S) || Input.GetKey(KeyCode.DownArrow)) { transform.Translate(0, 0, -speed * Time.deltaTime); }
-        // if(Input.GetKey(KeyCode.A) || Input.GetKey(KeyCode.LeftArrow)) { transform.Translate(-speed * Time.deltaTime, 0, 0); }
-        // if(Input.GetKey(KeyCode.D) || Input.GetKey(KeyCode.RightArrow)) { transform.Translate(speed * Time.deltaTime, 0, 0); }
     }
 
+    IEnumerator Dash()
+    {
+        isDashing = true;
+        Vector3 dashDirection = transform.forward * dashSpeed;
+        float startTime = Time.time;
 
+        while (Time.time < startTime + dashDuration)
+        {
+            transform.Translate(dashDirection * Time.deltaTime, Space.World);
+            yield return null;
+        }
 
-    
-
-
-
+        isDashing = false;
+    }
 }
