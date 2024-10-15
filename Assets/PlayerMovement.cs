@@ -6,21 +6,30 @@ public class PlayerMovement : MonoBehaviour
 {
     public float normalSpeed = 5f;
     public float boostedSpeed = 10f;
+    public float reducedSpeed = 2.5f;
     public float rotationSpeed = 120f;
-    public float dashSpeed = 20f;
+    public float dashForce = 20f;
     public float dashDuration = 0.2f;
-    
+    public float speedEffectDuration = 3f;
+
+    public LayerMask speedBoostLayer;
+    public LayerMask speedReduceLayer;
+
     private float currentSpeed;
     private Vector2 movementValue;
     private float lookValue;
     private bool isDashing = false;
-    private bool isSpeedBoosted = false;
+    private bool isSpeedEffectActive = false;
+
+    private Rigidbody rb;
 
     private void Start()
     {
         currentSpeed = normalSpeed;
         Cursor.visible = false;
         Cursor.lockState = CursorLockMode.Locked;
+        rb = GetComponent<Rigidbody>();
+        rb.freezeRotation = true;
     }
 
     public void OnMove(InputValue value)
@@ -41,59 +50,58 @@ public class PlayerMovement : MonoBehaviour
         }
     }
 
-    void Update()
+    void FixedUpdate()
     {
-        // 회전 적용
-        transform.Rotate(0, lookValue * Time.deltaTime, 0);
+        transform.Rotate(0, lookValue * Time.fixedDeltaTime, 0);
 
         if (!isDashing)
         {
-            // 이동 벡터 계산 (로컬 공간 기준)
             Vector3 movement = transform.right * movementValue.x + transform.forward * movementValue.y;
-            
-            // 정규화하여 대각선 이동 시 속도 보정
             if (movement.magnitude > 1f)
             {
                 movement.Normalize();
             }
-
-            // 이동 적용 (로컬 공간 기준)
-            transform.Translate(movement * currentSpeed * Time.deltaTime, Space.World);
+            rb.velocity = movement * currentSpeed;
         }
     }
 
     IEnumerator Dash()
     {
         isDashing = true;
-        Vector3 dashDirection = transform.forward * dashSpeed;
-        float startTime = Time.time;
+        Vector3 dashDirection = transform.forward * dashForce;
+        rb.AddForce(dashDirection, ForceMode.Impulse);
 
-        while (Time.time < startTime + dashDuration)
-        {
-            transform.Translate(dashDirection * Time.deltaTime, Space.World);
-            yield return null;
-        }
+        yield return new WaitForSeconds(dashDuration);
 
         isDashing = false;
     }
 
     private void OnTriggerEnter(Collider other)
     {
-        if (other.CompareTag("SpeedBoostItem") && !isSpeedBoosted)
+        if (!isSpeedEffectActive)
         {
-            StartCoroutine(ApplySpeedBoost());
-            Destroy(other.gameObject); // 아이템 제거
+            if (speedBoostLayer == (speedBoostLayer | (1 << other.gameObject.layer)))
+            {
+                StartCoroutine(ApplySpeedEffect(boostedSpeed));
+                Destroy(other.gameObject);
+            }
+            else if (speedReduceLayer == (speedReduceLayer | (1 << other.gameObject.layer)))
+            {
+                StartCoroutine(ApplySpeedEffect(reducedSpeed));
+                Destroy(other.gameObject);
+            }
         }
     }
 
-    private IEnumerator ApplySpeedBoost()
+    private IEnumerator ApplySpeedEffect(float newSpeed)
     {
-        isSpeedBoosted = true;
-        currentSpeed = boostedSpeed;
-        
-        yield return new WaitForSeconds(3f);
-        
-        currentSpeed = normalSpeed;
-        isSpeedBoosted = false;
+        isSpeedEffectActive = true;
+        float originalSpeed = currentSpeed;
+        currentSpeed = newSpeed;
+
+        yield return new WaitForSeconds(speedEffectDuration);
+
+        currentSpeed = originalSpeed;
+        isSpeedEffectActive = false;
     }
 }
